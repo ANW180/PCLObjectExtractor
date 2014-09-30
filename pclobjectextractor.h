@@ -9,9 +9,8 @@
 #include <vtkRenderWindow.h>
 #include <vtkEventQtSlotConnect.h>
 #include <pcl/filters/filter.h>
-
-typedef pcl::PointXYZRGB PointT;
-typedef pcl::PointCloud<PointT> PointCloudT;
+#include <pcl/io/pcd_io.h>
+#include <algorithm>
 
 namespace Ui
 {
@@ -44,8 +43,10 @@ private:
     Ui::PCLObjectExtractor *ui;
 
 protected:
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mViewer;
-    PointCloudT::Ptr mCloud;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mPointCloudViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mSelectionViewer;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mLoadedPointCloud;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mSelectedPointCloud;
 };
 
 #endif // PCLOBJECTEXTRACTOR_H

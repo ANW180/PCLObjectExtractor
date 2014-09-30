@@ -5,6 +5,7 @@ project(PCLObjectExtractor)
 find_package(Qt4 REQUIRED)
 find_package(VTK REQUIRED)
 find_package(PCL 1.7 REQUIRED)
+find_package(PkgConfig REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
