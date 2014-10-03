@@ -1,4 +1,4 @@
 PCLObjectExtractor
 ==================
 
-Qt Project used for extracting models from existing point clouds manually from a Qt GUI interface.
+GUI used for extracting objects from existing point clouds (using PCL library) files. Useful for building object descriptors.
