@@ -11,6 +11,9 @@
 #include <pcl/filters/filter.h>
 #include <pcl/io/pcd_io.h>
 #include <algorithm>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QIcon>
 
 namespace Ui
 {
@@ -32,6 +35,9 @@ signals:
 private slots:
     void PointHighlightSlot(int pointIndex);
     void AreaHighlightSlot(std::vector<int> pointIndecies);
+    void on_helpAction_triggered();
+    void on_loadButton_clicked();
+    void on_saveButton_clicked();
 
 private:
     static void PointSelectionCallback(
@@ -40,13 +46,13 @@ private:
     static void AreaSelectionCallback(
                             const pcl::visualization::AreaPickingEvent& event,
                             void* args);
-    Ui::PCLObjectExtractor *ui;
-
-protected:
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mPointCloudViewer;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mSelectionViewer;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mLoadedPointCloud;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mSelectedPointCloud;
+    Ui::PCLObjectExtractor *mUi;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpPointCloudViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectionViewer;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mpLoadedPointCloud;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mpSelectedPointCloud;
+    QFileDialog mFileDialog;
+    int mNumPointsSelected;
 };
 
 #endif // PCLOBJECTEXTRACTOR_H
