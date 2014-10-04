@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 project(PCLObjectExtractor)
  
-find_package(Qt4 REQUIRED)
+find_package(Qt REQUIRED)
 find_package(VTK REQUIRED)
 find_package(PCL 1.7 REQUIRED)
 find_package(PkgConfig REQUIRED)
