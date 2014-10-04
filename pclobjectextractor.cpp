@@ -211,6 +211,9 @@ void PCLObjectExtractor::on_loadButton_clicked()
         }
         else
         {
+            mpSelectedPointCloud->points.clear();
+            mUi->qvtkWidget_2->update();
+            mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
             mpPointCloudViewer->updatePointCloud(mpLoadedPointCloud, "cloud");
             mpPointCloudViewer->resetCamera();
             mUi->qvtkWidget->update();
