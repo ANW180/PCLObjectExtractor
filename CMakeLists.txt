@@ -26,11 +26,25 @@ QT4_ADD_RESOURCES(RESOURCE_ADDED ${project_RESOURCES})
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
 
-ADD_EXECUTABLE(PCLObjectExtractor ${project_SOURCES}
+add_executable(PCLObjectExtractor ${project_SOURCES}
                                   ${project_FORMS_HEADERS}
                                   ${project_HEADERS_MOC}
                                   ${project_RESOURCES})
 
-TARGET_LINK_LIBRARIES(PCLObjectExtractor ${QT_LIBRARIES}
+target_link_libraries(PCLObjectExtractor ${QT_LIBRARIES}
                                          ${PCL_LIBRARIES}
                                          ${VTK_LIBRARIES})
+
+install(TARGETS PCLObjectExtractor DESTINATION /Applications/)
+install(FILES icon.png DESTINATION /Applications/)
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_VERSION_MAJOR "1")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libpcl-all-dev")
+set(CPACK_PACKAGE_DESCRIPTION "Configure UExhibitor and launch missions")
+set(CPACK_PACKAGE_CONTACT "Andrew Watson watsontandrew@gmail.com")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/Debian/postinst")
+
+include(CPack)

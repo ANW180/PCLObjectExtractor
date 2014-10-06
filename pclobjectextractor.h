@@ -30,11 +30,15 @@ public:
 
 signals:
     void PointHighlightSignal(int pointIndex);
-    void AreaHighlightSignal(std::vector<int> pointIndecies);
+    void AreaHighlightSignal(std::vector<int> pointIndices);
+    void PointRemoveSignal(int pointIndex);
+    void AreaRemoveSignal(std::vector<int> pointIndices);
 
 private slots:
     void PointHighlightSlot(int pointIndex);
-    void AreaHighlightSlot(std::vector<int> pointIndecies);
+    void AreaHighlightSlot(std::vector<int> pointIndices);
+    void PointRemoveSlot(int pointIndex);
+    void AreaRemoveSlot(std::vector<int> pointIndices);
     void on_helpAction_triggered();
     void on_loadButton_clicked();
     void on_saveButton_clicked();
@@ -44,6 +48,12 @@ private:
                             const pcl::visualization::PointPickingEvent& event,
                             void* args);
     static void AreaSelectionCallback(
+                            const pcl::visualization::AreaPickingEvent& event,
+                            void* args);
+    static void PointRemoveCallback(
+                            const pcl::visualization::PointPickingEvent& event,
+                            void* args);
+    static void AreaRemoveCallback(
                             const pcl::visualization::AreaPickingEvent& event,
                             void* args);
     Ui::PCLObjectExtractor *mUi;
