@@ -92,9 +92,10 @@ void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
     mpSelectionViewer->resetCamera();
     mUi->qvtkWidget_2->update();
     mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
-    mUi->pointsSelectedLabel->setText(QString("Object contains: "
-                                              + QString::number(mNumPointsSelected)
-                                              + " points"));
+    mUi->pointsSelectedLabel->setText(
+                QString("Object contains: "
+                        + QString::number(mNumPointsSelected)
+                        + " points"));
     if(mpSelectedPointCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
@@ -105,35 +106,61 @@ void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
 
 void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
 {
+    PointCloud<PointXYZRGB> pointsToAdd;
+    bool errorOccured = false;
     for(int i = 0; i < pointIndices.size(); i++)
     {
-        PointXYZRGB selectedPoint = mpLoadedPointCloud->points[pointIndices.at(i)];
-        PointCloud<PointXYZRGB>::const_iterator it;
-        bool addPoint = true;
-        for(it = mpSelectedPointCloud->points.begin();
-            it != mpSelectedPointCloud->points.end();
-            it++)
+        int index = pointIndices.at(i);
+        if(index <= mpLoadedPointCloud->points.size() &&
+                index >= 0)
+        {
+            pointsToAdd.push_back(
+                        mpLoadedPointCloud->points[index]);
+        }
+        else
+        {
+            errorOccured = true;
+        }
+    }
+    if(errorOccured)
+    {
+        QMessageBox::information(this,
+                                 "VTK Error",
+                                 "An error occured in selecting some points.");
+    }
+    PointCloud<PointXYZRGB>::iterator it1;
+    for(it1 = pointsToAdd.begin();
+        it1 != pointsToAdd.end();
+        it1++)
+    {
+        bool alreadyAdded = false;
+        PointCloud<PointXYZRGB>::const_iterator it2;
+        for(it2 = mpSelectedPointCloud->points.begin();
+            it2 != mpSelectedPointCloud->points.end();
+            it2++)
         {
             // Same point
-            if(fabs((*it).x - selectedPoint.x) < 0.00001 &&
-                    fabs((*it).y - selectedPoint.y) < 0.00001 &&
-                    fabs((*it).z - selectedPoint.z) < 0.00001)
+            if(fabs((*it2).x -(*it1).x) < 0.00001 &&
+                    fabs((*it2).y - (*it1).y) < 0.00001 &&
+                    fabs((*it2).z - (*it1).z) < 0.00001)
             {
-                addPoint = false;
+                alreadyAdded = true;
+                break;
             }
         }
-        if(addPoint)
+        if(!alreadyAdded)
         {
-            mpSelectedPointCloud->points.push_back(selectedPoint);
+            mpSelectedPointCloud->points.push_back(*it1);
         }
     }
     mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
     mpSelectionViewer->resetCamera();
     mUi->qvtkWidget_2->update();
     mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
-    mUi->pointsSelectedLabel->setText(QString("Object contains: "
-                                              + QString::number(mNumPointsSelected)
-                                              + " points"));
+    mUi->pointsSelectedLabel->setText(
+                QString("Object contains: "
+                        + QString::number(mNumPointsSelected)
+                        + " points"));
     if(mpSelectedPointCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
@@ -160,9 +187,10 @@ void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
             mpSelectionViewer->resetCamera();
             mUi->qvtkWidget_2->update();
             mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
-            mUi->pointsSelectedLabel->setText(QString("Object contains: "
-                                                      + QString::number(mNumPointsSelected)
-                                                      + " points"));
+            mUi->pointsSelectedLabel->setText(
+                        QString("Object contains: "
+                                + QString::number(mNumPointsSelected)
+                                + " points"));
             if(mpSelectedPointCloud->points.size() > 0)
             {
                 mUi->saveButton->setEnabled(true);
@@ -181,10 +209,26 @@ void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
 void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
 {
     PointCloud<PointXYZRGB> pointsToRemove;
+    bool errorOccured = false;
     for(int i = 0; i < pointIndices.size(); i++)
     {
-        pointsToRemove.push_back(
-                    mpSelectedPointCloud->points[pointIndices.at(i)]);
+        int index = pointIndices.at(i);
+        if(index <= mpSelectedPointCloud->points.size() &&
+                index >= 0)
+        {
+            pointsToRemove.push_back(
+                        mpSelectedPointCloud->points[index]);
+        }
+        else
+        {
+            errorOccured = true;
+        }
+    }
+    if(errorOccured)
+    {
+        QMessageBox::information(this,
+                                 "VTK Error",
+                                 "There was an error in removing some points.");
     }
     PointCloud<PointXYZRGB>::iterator it1;
     for(it1 = pointsToRemove.begin();
@@ -213,9 +257,10 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
     mpSelectionViewer->resetCamera();
     mUi->qvtkWidget_2->update();
     mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
-    mUi->pointsSelectedLabel->setText(QString("Object contains: "
-                                              + QString::number(mNumPointsSelected)
-                                              + " points"));
+    mUi->pointsSelectedLabel->setText(
+                QString("Object contains: "
+                        + QString::number(mNumPointsSelected)
+                        + " points"));
     if(mpSelectedPointCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
@@ -232,7 +277,15 @@ void PCLObjectExtractor::on_helpAction_triggered()
 {
     QMessageBox::about(this,
                        "About PCL Object Extractor",
-                       "This program allows users to create point cloud library compatible point clouds by croping existing clouds loaded into the program. These new object models can then be saved out into the PCL .PCD format.");
+                       QString("This program allows users to create crop ")
+                       + "objects from existing point clouds by croping loaded "
+                       + "PCD files and saving them out in the program. To "
+                       + "select points first load the desired PCD file then "
+                       + "click and make active the point cloud visualizer. "
+                       + "While holding shift and left clicking you can select "
+                       + "individual points or you can push 'x' to enable area "
+                       + "selection. Deselect points by doing the same in the "
+                       + "selected object visualizer window.");
 }
 
 
@@ -282,7 +335,8 @@ void PCLObjectExtractor::on_saveButton_clicked()
         if(mpSelectedPointCloud->points.size() > 0)
         {
             mpSelectedPointCloud->height = 1;
-            mpSelectedPointCloud->width = (int)mpSelectedPointCloud->points.size();
+            mpSelectedPointCloud->width = (int)
+                    mpSelectedPointCloud->points.size();
             mpSelectedPointCloud->is_dense = false;
             if(io::savePCDFileASCII(fileName.toUtf8().constData(),
                                     *mpSelectedPointCloud) == -1)
