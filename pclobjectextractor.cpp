@@ -9,8 +9,8 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
 {
     mUi->setupUi(this);
     mUi->saveButton->setEnabled(false);
-    mpLoadedPointCloud.reset(new PointCloud<PointXYZRGB> );
-    mpSelectedPointCloud.reset(new PointCloud<PointXYZRGB> );
+    mpLoadedPointCloud.reset(new PointCloud<PointXYZ> );
+    mpSelectedPointCloud.reset(new PointCloud<PointXYZ> );
     mpPointCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpSelectionViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mFileDialog.setDefaultSuffix(QString("pcd"));
@@ -61,7 +61,7 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
     connect(mUi->actionHelp,
             SIGNAL(triggered()),
             this,
-            SLOT(on_helpAction_triggered()));
+            SLOT(on_actionHelp_triggered()));
 }
 
 
@@ -73,8 +73,8 @@ PCLObjectExtractor::~PCLObjectExtractor()
 
 void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
 {
-    PointXYZRGB selectedPoint = mpLoadedPointCloud->points[pointIndex];
-    PointCloud<PointXYZRGB>::const_iterator it;
+    PointXYZ selectedPoint = mpLoadedPointCloud->points[pointIndex];
+    PointCloud<PointXYZ>::const_iterator it;
     for(it = mpSelectedPointCloud->points.begin();
         it != mpSelectedPointCloud->points.end();
         it++)
@@ -106,7 +106,7 @@ void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
 
 void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
 {
-    PointCloud<PointXYZRGB> pointsToAdd;
+    PointCloud<PointXYZ> pointsToAdd;
     bool errorOccured = false;
     for(int i = 0; i < pointIndices.size(); i++)
     {
@@ -128,13 +128,13 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
                                  "VTK Error",
                                  "An error occured in selecting some points.");
     }
-    PointCloud<PointXYZRGB>::iterator it1;
+    PointCloud<PointXYZ>::iterator it1;
     for(it1 = pointsToAdd.begin();
         it1 != pointsToAdd.end();
         it1++)
     {
         bool alreadyAdded = false;
-        PointCloud<PointXYZRGB>::const_iterator it2;
+        PointCloud<PointXYZ>::const_iterator it2;
         for(it2 = mpSelectedPointCloud->points.begin();
             it2 != mpSelectedPointCloud->points.end();
             it2++)
@@ -171,8 +171,8 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
 
 void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
 {
-    PointXYZRGB selectedPoint = mpSelectedPointCloud->points[pointIndex];
-    PointCloud<PointXYZRGB>::iterator it;
+    PointXYZ selectedPoint = mpSelectedPointCloud->points[pointIndex];
+    PointCloud<PointXYZ>::iterator it;
     for(it = mpSelectedPointCloud->points.begin();
         it != mpSelectedPointCloud->points.end();
         it++)
@@ -208,7 +208,7 @@ void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
 
 void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
 {
-    PointCloud<PointXYZRGB> pointsToRemove;
+    PointCloud<PointXYZ> pointsToRemove;
     bool errorOccured = false;
     for(int i = 0; i < pointIndices.size(); i++)
     {
@@ -230,12 +230,12 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
                                  "VTK Error",
                                  "There was an error in removing some points.");
     }
-    PointCloud<PointXYZRGB>::iterator it1;
+    PointCloud<PointXYZ>::iterator it1;
     for(it1 = pointsToRemove.begin();
         it1 < pointsToRemove.end();
         it1++)
     {
-        PointCloud<PointXYZRGB>::iterator it2;
+        PointCloud<PointXYZ>::iterator it2;
         for(it2 = mpSelectedPointCloud->points.begin();
             it2 != mpSelectedPointCloud->points.end();)
         {
@@ -273,7 +273,7 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
 }
 
 
-void PCLObjectExtractor::on_helpAction_triggered()
+void PCLObjectExtractor::on_actionHelp_triggered()
 {
     QMessageBox::about(this,
                        "About PCL Object Extractor",
@@ -297,25 +297,46 @@ void PCLObjectExtractor::on_loadButton_clicked()
                                                    "PCD Files (*.pcd)");
     if(!fileName.isEmpty())
     {
-        if(io::loadPCDFile(fileName.toUtf8().constData(),
-                           *mpLoadedPointCloud) == -1)
+        PCLPointCloud2 cloud;
+        Eigen::Vector4f origin;
+        Eigen::Quaternionf orientation;
+        int fileVersion, dataType;
+        unsigned int dataIdx;
+        if(mPCDReader.readHeader(fileName.toUtf8().constData(),
+                                 cloud,
+                                 origin,
+                                 orientation,
+                                 fileVersion,
+                                 dataType,
+                                 dataIdx) < 0)
         {
             QMessageBox::information(this,
                                      "Error",
                                      fileName + " failed to open.");
             return;
         }
-        else
+        for (size_t i = 0; i < cloud.fields.size(); i++)
         {
-            mpSelectedPointCloud->points.clear();
-            mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
-            mpPointCloudViewer->updatePointCloud(mpLoadedPointCloud, "cloud");
-            mpPointCloudViewer->resetCamera();
-            mpSelectionViewer->resetCamera();
-            mUi->qvtkWidget->update();
-            mUi->qvtkWidget_2->update();
-            mUi->pointCloudSourceLabel->setText(fileName);
+            std::string name = cloud.fields.at(i).name;
+            std::cout << name << std::endl;
         }
+        if(mPCDReader.read(fileName.toUtf8().constData(),
+                           cloud) < 0)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " failed to open.");
+            return;
+        }
+        pcl::fromPCLPointCloud2(cloud, *mpLoadedPointCloud);
+        mpSelectedPointCloud->points.clear();
+        mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
+        mpPointCloudViewer->updatePointCloud(mpLoadedPointCloud, "cloud");
+        mpPointCloudViewer->resetCamera();
+        mpSelectionViewer->resetCamera();
+        mUi->qvtkWidget->update();
+        mUi->qvtkWidget_2->update();
+        mUi->pointCloudSourceLabel->setText(fileName);
     }
 }
 

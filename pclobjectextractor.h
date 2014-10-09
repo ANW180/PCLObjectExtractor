@@ -6,6 +6,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/impl/instantiate.hpp>
 #include <vtkRenderWindow.h>
 #include <vtkEventQtSlotConnect.h>
 #include <pcl/filters/filter.h>
@@ -39,7 +40,7 @@ private slots:
     void AreaHighlightSlot(std::vector<int> pointIndices);
     void PointRemoveSlot(int pointIndex);
     void AreaRemoveSlot(std::vector<int> pointIndices);
-    void on_helpAction_triggered();
+    void on_actionHelp_triggered();
     void on_loadButton_clicked();
     void on_saveButton_clicked();
 
@@ -59,9 +60,10 @@ private:
     Ui::PCLObjectExtractor *mUi;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpPointCloudViewer;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectionViewer;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mpLoadedPointCloud;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr mpSelectedPointCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedPointCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelectedPointCloud;
     QFileDialog mFileDialog;
+    pcl::PCDReader mPCDReader;
     int mNumPointsSelected;
 };
 
