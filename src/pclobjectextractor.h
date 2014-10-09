@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QIcon>
 
+
 namespace Ui
 {
     class PCLObjectExtractor;
@@ -41,6 +42,7 @@ private slots:
     void PointRemoveSlot(int pointIndex);
     void AreaRemoveSlot(std::vector<int> pointIndices);
     void on_actionHelp_triggered();
+    void on_actionExit_triggered();
     void on_loadButton_clicked();
     void on_saveButton_clicked();
 
@@ -60,10 +62,13 @@ private:
     Ui::PCLObjectExtractor *mUi;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpPointCloudViewer;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectionViewer;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedPointCloud;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelectedPointCloud;
+    pcl::PCLPointCloud2Ptr mpLoadedPointCloud;
+    pcl::PCLPointCloud2Ptr mpSelectedPointCloud;
+    std::string mLoadedCloudType;
+    std::string mSelectedCloudType;
     QFileDialog mFileDialog;
     pcl::PCDReader mPCDReader;
+    pcl::PCDWriter mPCDWriter;
     int mNumPointsSelected;
 };
 
