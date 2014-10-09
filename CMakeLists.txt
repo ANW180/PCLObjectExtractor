@@ -13,20 +13,20 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-set(project_SOURCES src/main.cpp src/pclobjectextractor.cpp)
-set(project_HEADERS src/pclobjectextractor.h)
-set(project_FORMS src/qt/pclobjectextractor.ui)
+set(SOURCES src/main.cpp src/qt/pclobjectextractor.cpp)
+set(HEADERS src/qt/pclobjectextractor.h)
+set(FORMS src/qt/pclobjectextractor.ui)
 set(VTK_LIBRARIES vtkRendering vtkGraphics vtkHybrid QVTK)
 
-QT4_WRAP_UI(project_FORMS_HEADERS ${project_FORMS})
-QT4_WRAP_CPP(project_HEADERS_MOC ${project_HEADERS})
+QT4_WRAP_UI(FORMS_HEADERS ${FORMS})
+QT4_WRAP_CPP(HEADERS_MOC ${HEADERS})
 
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
 
-add_executable(PCLObjectExtractor ${project_SOURCES}
-                                  ${project_FORMS_HEADERS}
-                                  ${project_HEADERS_MOC})
+add_executable(PCLObjectExtractor ${SOURCES}
+                                  ${FORMS_HEADERS}
+                                  ${HEADERS_MOC})
 
 target_link_libraries(PCLObjectExtractor ${QT_LIBRARIES}
                                          ${PCL_LIBRARIES}

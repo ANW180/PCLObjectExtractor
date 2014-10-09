@@ -9,28 +9,28 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
 {
     mUi->setupUi(this);
     mUi->saveButton->setEnabled(false);
-    mpLoadedPointCloud.reset(new PCLPointCloud2);
-    mpSelectedPointCloud.reset(new PCLPointCloud2 );
-    mpPointCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
-    mpSelectionViewer.reset(new visualization::PCLVisualizer("Viewer", false));
+    mpLoadedCloud.reset(new PCLPointCloud2);
+    mpSelectedCloud.reset(new PCLPointCloud2 );
+    mpLoadedCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
+    mpSelectedCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mFileDialog.setDefaultSuffix(QString("pcd"));
 
     // Set up QVTK widgets and viewers.
-    mUi->qvtkWidget->SetRenderWindow(mpPointCloudViewer->getRenderWindow());
-    mUi->qvtkWidget_2->SetRenderWindow(mpSelectionViewer->getRenderWindow());
-    mpPointCloudViewer->setupInteractor(mUi->qvtkWidget->GetInteractor(),
+    mUi->qvtkWidget->SetRenderWindow(mpLoadedCloudViewer->getRenderWindow());
+    mUi->qvtkWidget_2->SetRenderWindow(mpSelectedCloudViewer->getRenderWindow());
+    mpLoadedCloudViewer->setupInteractor(mUi->qvtkWidget->GetInteractor(),
                                         mUi->qvtkWidget->GetRenderWindow());
-    mpSelectionViewer->setupInteractor(mUi->qvtkWidget_2->GetInteractor(),
+    mpSelectedCloudViewer->setupInteractor(mUi->qvtkWidget_2->GetInteractor(),
                                        mUi->qvtkWidget_2->GetRenderWindow());
-    mpPointCloudViewer->setShowFPS(false);
-    mpSelectionViewer->setShowFPS(false);
-    mpPointCloudViewer->registerPointPickingCallback(&PointSelectionCallback,
+    mpLoadedCloudViewer->setShowFPS(false);
+    mpSelectedCloudViewer->setShowFPS(false);
+    mpLoadedCloudViewer->registerPointPickingCallback(&PointSelectionCallback,
                                                      this);
-    mpPointCloudViewer->registerAreaPickingCallback(&AreaSelectionCallback,
+    mpLoadedCloudViewer->registerAreaPickingCallback(&AreaSelectionCallback,
                                                     this);
-    mpSelectionViewer->registerPointPickingCallback(&PointRemoveCallback,
+    mpSelectedCloudViewer->registerPointPickingCallback(&PointRemoveCallback,
                                                     this);
-    mpSelectionViewer->registerAreaPickingCallback(&AreaRemoveCallback,
+    mpSelectedCloudViewer->registerAreaPickingCallback(&AreaRemoveCallback,
                                                    this);
 
     // Connect all gui signals/slots
@@ -69,10 +69,10 @@ PCLObjectExtractor::~PCLObjectExtractor()
 
 void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
 {
-    PointXYZ selectedPoint = mpLoadedPointCloud->points[pointIndex];
+    PointXYZ selectedPoint = mpLoadedCloud->points[pointIndex];
     PointCloud<PointXYZ>::const_iterator it;
-    for(it = mpSelectedPointCloud->points.begin();
-        it != mpSelectedPointCloud->points.end();
+    for(it = mpSelectedCloud->points.begin();
+        it != mpSelectedCloud->points.end();
         it++)
     {
         // Same point
@@ -83,15 +83,15 @@ void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
             return;
         }
     }
-    mpSelectedPointCloud->points.push_back(selectedPoint);
-    mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
-    mpSelectionViewer->resetCamera();
+    mpSelectedCloud->points.push_back(selectedPoint);
+    mpSelectedCloudViewer->updatePointCloud(mpSelectedCloud, "cloud");
+    mpSelectedCloudViewer->resetCamera();
     mUi->qvtkWidget_2->update();
-    mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
+    mNumPointsSelected = (int)mpSelectedCloud->points.size();
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
-    if(mpSelectedPointCloud->points.size() > 0)
+    if(mpSelectedCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
         mUi->saveButton->setText(QString("Save"));
@@ -106,11 +106,11 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
     for(int i = 0; i < pointIndices.size(); i++)
     {
         int index = pointIndices.at(i);
-        if(index <= mpLoadedPointCloud->points.size() &&
+        if(index <= mpLoadedCloud->points.size() &&
                 index >= 0)
         {
             pointsToAdd.push_back(
-                        mpLoadedPointCloud->points[index]);
+                        mpLoadedCloud->points[index]);
         }
         else
         {
@@ -130,8 +130,8 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
     {
         bool alreadyAdded = false;
         PointCloud<PointXYZ>::const_iterator it2;
-        for(it2 = mpSelectedPointCloud->points.begin();
-            it2 != mpSelectedPointCloud->points.end();
+        for(it2 = mpSelectedCloud->points.begin();
+            it2 != mpSelectedCloud->points.end();
             it2++)
         {
             // Same point
@@ -145,17 +145,17 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
         }
         if(!alreadyAdded)
         {
-            mpSelectedPointCloud->points.push_back(*it1);
+            mpSelectedCloud->points.push_back(*it1);
         }
     }
-    mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
-    mpSelectionViewer->resetCamera();
+    mpSelectedCloudViewer->updatePointCloud(mpSelectedCloud, "cloud");
+    mpSelectedCloudViewer->resetCamera();
     mUi->qvtkWidget_2->update();
-    mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
+    mNumPointsSelected = (int)mpSelectedCloud->points.size();
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
-    if(mpSelectedPointCloud->points.size() > 0)
+    if(mpSelectedCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
         mUi->saveButton->setText(QString("Save"));
@@ -165,10 +165,10 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
 
 void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
 {
-    PointXYZ selectedPoint = mpSelectedPointCloud->points[pointIndex];
+    PointXYZ selectedPoint = mpSelectedCloud->points[pointIndex];
     PointCloud<PointXYZ>::iterator it;
-    for(it = mpSelectedPointCloud->points.begin();
-        it != mpSelectedPointCloud->points.end();
+    for(it = mpSelectedCloud->points.begin();
+        it != mpSelectedCloud->points.end();
         it++)
     {
         // Same point
@@ -176,20 +176,20 @@ void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
                 fabs((*it).y - selectedPoint.y) < 0.00001 &&
                 fabs((*it).z - selectedPoint.z) < 0.00001)
         {
-            mpSelectedPointCloud->points.erase(it);
-            mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
-            mpSelectionViewer->resetCamera();
+            mpSelectedCloud->points.erase(it);
+            mpSelectedCloudViewer->updatePointCloud(mpSelectedCloud, "cloud");
+            mpSelectedCloudViewer->resetCamera();
             mUi->qvtkWidget_2->update();
-            mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
+            mNumPointsSelected = (int)mpSelectedCloud->points.size();
             mUi->pointsSelectedLabel->setText(
                         QString(QString::number(mNumPointsSelected)
                                 + " points"));
-            if(mpSelectedPointCloud->points.size() > 0)
+            if(mpSelectedCloud->points.size() > 0)
             {
                 mUi->saveButton->setEnabled(true);
                 mUi->saveButton->setText(QString("Save"));
             }
-            else if(mpSelectedPointCloud->points.size() == 0)
+            else if(mpSelectedCloud->points.size() == 0)
             {
                 mUi->saveButton->setEnabled(false);
             }
@@ -206,11 +206,11 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
     for(int i = 0; i < pointIndices.size(); i++)
     {
         int index = pointIndices.at(i);
-        if(index <= mpSelectedPointCloud->points.size() &&
+        if(index <= mpSelectedCloud->points.size() &&
                 index >= 0)
         {
             pointsToRemove.push_back(
-                        mpSelectedPointCloud->points[index]);
+                        mpSelectedCloud->points[index]);
         }
         else
         {
@@ -229,15 +229,15 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
         it1++)
     {
         PointCloud<PointXYZ>::iterator it2;
-        for(it2 = mpSelectedPointCloud->points.begin();
-            it2 != mpSelectedPointCloud->points.end();)
+        for(it2 = mpSelectedCloud->points.begin();
+            it2 != mpSelectedCloud->points.end();)
         {
             // Same point
             if(fabs((*it2).x -(*it1).x) < 0.00001 &&
                     fabs((*it2).y - (*it1).y) < 0.00001 &&
                     fabs((*it2).z - (*it1).z) < 0.00001)
             {
-                it2 = mpSelectedPointCloud->points.erase(it2);
+                it2 = mpSelectedCloud->points.erase(it2);
                 break;
             }
             else
@@ -246,19 +246,19 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
             }
         }
     }
-    mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
-    mpSelectionViewer->resetCamera();
+    mpSelectedCloudViewer->updatePointCloud(mpSelectedCloud, "cloud");
+    mpSelectedCloudViewer->resetCamera();
     mUi->qvtkWidget_2->update();
-    mNumPointsSelected = (int)mpSelectedPointCloud->points.size();
+    mNumPointsSelected = (int)mpSelectedCloud->points.size();
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
-    if(mpSelectedPointCloud->points.size() > 0)
+    if(mpSelectedCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
         mUi->saveButton->setText(QString("Save"));
     }
-    else if(mpSelectedPointCloud->points.size() == 0)
+    else if(mpSelectedCloud->points.size() == 0)
     {
         mUi->saveButton->setEnabled(false);
     }
@@ -357,12 +357,12 @@ void PCLObjectExtractor::on_loadButton_clicked()
                                      fileName + " failed to open.");
             return;
         }
-        fromPCLPointCloud2(cloud, *mpLoadedPointCloud);
-        mpSelectedPointCloud->points.clear();
-        mpSelectionViewer->updatePointCloud(mpSelectedPointCloud, "cloud");
-        mpPointCloudViewer->updatePointCloud(mpLoadedPointCloud, "cloud");
-        mpPointCloudViewer->resetCamera();
-        mpSelectionViewer->resetCamera();
+        fromPCLPointCloud2(cloud, *mpLoadedCloud);
+        mpSelectedCloud->points.clear();
+        mpSelectedCloudViewer->updatePointCloud(mpSelectedCloud, "cloud");
+        mpLoadedCloudViewer->updatePointCloud(mpLoadedCloud, "cloud");
+        mpLoadedCloudViewer->resetCamera();
+        mpSelectedCloudViewer->resetCamera();
         mUi->qvtkWidget->update();
         mUi->qvtkWidget_2->update();
         mUi->pointCloudSourceLabel->setText(fileName.split("/").last());
@@ -382,14 +382,14 @@ void PCLObjectExtractor::on_saveButton_clicked()
         {
             fileName += ".pcd";
         }
-        if(mpSelectedPointCloud->points.size() > 0)
+        if(mpSelectedCloud->points.size() > 0)
         {
-            mpSelectedPointCloud->height = 1;
-            mpSelectedPointCloud->width = (int)
-                    mpSelectedPointCloud->points.size();
-            mpSelectedPointCloud->is_dense = false;
+            mpSelectedCloud->height = 1;
+            mpSelectedCloud->width = (int)
+                    mpSelectedCloud->points.size();
+            mpSelectedCloud->is_dense = false;
             if(io::savePCDFileASCII(fileName.toUtf8().constData(),
-                                    *mpSelectedPointCloud) == -1)
+                                    *mpSelectedCloud) == -1)
             {
                 QMessageBox::information(this,
                                          "Error",
