@@ -60,10 +60,10 @@ private:
                             const pcl::visualization::AreaPickingEvent& event,
                             void* args);
     Ui::PCLObjectExtractor *mUi;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpLoadedCloudViewer;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectedCloudViewer;
-    pcl::PCLPointCloud2Ptr mpLoadedCloud;
-    pcl::PCLPointCloud2Ptr mpSelectedCloud;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpLoadedViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectedViewer;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelectedCloud;
     std::string mLoadedCloudType;
     std::string mSelectedCloudType;
     QFileDialog mFileDialog;
