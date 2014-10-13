@@ -72,16 +72,19 @@ void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
 {
     PointXYZ selectedPoint = mpLoadedCloud->points[pointIndex];
     PointCloud<PointXYZ>::const_iterator it;
-    for(it = mpSelectedCloud->points.begin();
-        it != mpSelectedCloud->points.end();
-        it++)
+    if(mpSelectedCloud->points.size() > 0)
     {
-        // Same point
-        if(fabs((*it).x - selectedPoint.x) < 0.00001 &&
-                fabs((*it).y - selectedPoint.y) < 0.00001 &&
-                fabs((*it).z - selectedPoint.z) < 0.00001)
+        for(it = mpSelectedCloud->points.begin();
+            it != mpSelectedCloud->points.end();
+            it++)
         {
-            return;
+            // Same point
+            if(fabs((*it).x - selectedPoint.x) < 0.00001 &&
+                    fabs((*it).y - selectedPoint.y) < 0.00001 &&
+                    fabs((*it).z - selectedPoint.z) < 0.00001)
+            {
+                return;
+            }
         }
     }
     mpSelectedCloud->points.push_back(selectedPoint);
@@ -92,6 +95,7 @@ void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
+    mUi->highlightProgressBar->setValue(100);
     if(mpSelectedCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
@@ -128,38 +132,61 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
                                  "VTK Error",
                                  "An error occured in selecting some points.");
     }
-    PointCloud<PointXYZ>::iterator it1;
-    for(it1 = pointsToAdd.begin();
-        it1 != pointsToAdd.end();
-        it1++)
+    mUi->highlightProgressBar->setValue(0);
+    if(mpSelectedCloud->points.size() > 0)
     {
-        bool alreadyAdded = false;
-        PointCloud<PointXYZ>::const_iterator it2;
-        for(it2 = mpSelectedCloud->points.begin();
-            it2 != mpSelectedCloud->points.end();
-            it2++)
+        PointCloud<PointXYZ>::iterator it1;
+        for(it1 = pointsToAdd.begin();
+            it1 != pointsToAdd.end();
+            it1++)
         {
-            // Same point
-            if(fabs((*it2).x -(*it1).x) < 0.00001 &&
-                    fabs((*it2).y - (*it1).y) < 0.00001 &&
-                    fabs((*it2).z - (*it1).z) < 0.00001)
+            mUi->highlightProgressBar->setValue(int(float(it1 -
+                                                          pointsToAdd.begin()) /
+                                                    (float)(pointsToAdd.size())
+                                                    * 100.));
+            bool alreadyAdded = false;
+            PointCloud<PointXYZ>::const_iterator it2;
+            for(it2 = mpSelectedCloud->points.begin();
+                it2 != mpSelectedCloud->points.end();
+                it2++)
             {
-                alreadyAdded = true;
-                break;
+                // Same point
+                if(fabs((*it2).x -(*it1).x) < 0.00001 &&
+                        fabs((*it2).y - (*it1).y) < 0.00001 &&
+                        fabs((*it2).z - (*it1).z) < 0.00001)
+                {
+                    alreadyAdded = true;
+                    break;
+                }
+            }
+            if(!alreadyAdded)
+            {
+                mpSelectedCloud->points.push_back(*it1);
             }
         }
-        if(!alreadyAdded)
+    }
+    else
+    {
+        PointCloud<PointXYZ>::iterator it1;
+        for(it1 = pointsToAdd.begin();
+            it1 != pointsToAdd.end();
+            it1++)
         {
+            mUi->highlightProgressBar->setValue(int(float(it1 -
+                                                          pointsToAdd.begin()) /
+                                                    (float)(pointsToAdd.size())
+                                                    * 100.));
             mpSelectedCloud->points.push_back(*it1);
         }
     }
-    mpSelectedViewer->updatePointCloud(mpSelectedCloud, "");
-    mpSelectedViewer->resetCamera();
-    mUi->qvtkWidget_2->update();
+    mUi->highlightProgressBar->setValue(100);
     mNumPointsSelected = (int)mpSelectedCloud->points.size();
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
+    mpSelectedViewer->updatePointCloud(mpSelectedCloud, "");
+    mpSelectedViewer->resetCamera();
+    mUi->qvtkWidget_2->update();
     if(mpSelectedCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
@@ -193,6 +220,7 @@ void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
             mUi->pointsSelectedLabel->setText(
                         QString(QString::number(mNumPointsSelected)
                                 + " points"));
+            mUi->removeProgressBar->setValue(100);
             if(mpSelectedCloud->points.size() > 0)
             {
                 mUi->saveButton->setEnabled(true);
@@ -236,11 +264,16 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
                                  "VTK Error",
                                  "There was an error in removing some points.");
     }
+    mUi->removeProgressBar->setValue(0);
     PointCloud<PointXYZ>::iterator it1;
     for(it1 = pointsToRemove.begin();
         it1 < pointsToRemove.end();
         it1++)
     {
+        mUi->removeProgressBar->setValue(int(float(it1 -
+                                                   pointsToRemove.begin()) /
+                                             (float)(pointsToRemove.size())
+                                             * 100.));
         PointCloud<PointXYZ>::iterator it2;
         for(it2 = mpSelectedCloud->points.begin();
             it2 != mpSelectedCloud->points.end();)
@@ -259,13 +292,14 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
             }
         }
     }
-    mpSelectedViewer->updatePointCloud(mpSelectedCloud, "");
-    mpSelectedViewer->resetCamera();
-    mUi->qvtkWidget_2->update();
+    mUi->removeProgressBar->setValue(100);
     mNumPointsSelected = (int)mpSelectedCloud->points.size();
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
+    mpSelectedViewer->updatePointCloud(mpSelectedCloud, "");
+    mpSelectedViewer->resetCamera();
+    mUi->qvtkWidget_2->update();
     if(mpSelectedCloud->points.size() > 0)
     {
         mUi->saveButton->setEnabled(true);
@@ -374,10 +408,15 @@ void PCLObjectExtractor::on_loadButton_clicked()
  */
 void PCLObjectExtractor::on_saveButton_clicked()
 {
+    QString selectedFilter;
     QString fileName = mFileDialog.getSaveFileName(this,
                                                    tr("Save Selected Object"),
                                                    QDir::homePath(),
-                                                   "PCD Files (*.pcd)");
+                                                   QString("ASCII PCD(*.pcd)") +
+                                                   ";;Binary PCD(*.pcd)" +
+                                                   ";;Compressed Binary PCD" +
+                                                   "(*.pcd)",
+                                                   &selectedFilter);
     if(!fileName.isEmpty())
     {
         if(!(fileName.endsWith(".pcd")))
@@ -390,15 +429,40 @@ void PCLObjectExtractor::on_saveButton_clicked()
             mpSelectedCloud->width = (int)
                     mpSelectedCloud->points.size();
             mpSelectedCloud->is_dense = false;
-            if(io::savePCDFileASCII(fileName.toUtf8().constData(),
-                                    *mpSelectedCloud) == -1)
+            if(selectedFilter.operator ==("ASCII PCD(*.pcd)"))
             {
-                QMessageBox::information(this,
-                                         "Error",
-                                         fileName + " failed to save.");
-                return;
+                if(io::savePCDFileASCII(fileName.toUtf8().constData(),
+                                        *mpSelectedCloud) == -1)
+                {
+                    QMessageBox::information(this,
+                                             "Error",
+                                             fileName + " failed to save.");
+                    return;
+                }
             }
-            mUi->saveButton->setEnabled(false);
+            else if(selectedFilter.operator ==("Binary PCD(*.pcd)"))
+            {
+                if(io::savePCDFileBinary(fileName.toUtf8().constData(),
+                                         *mpSelectedCloud) == -1)
+                {
+                    QMessageBox::information(this,
+                                             "Error",
+                                             fileName + " failed to save.");
+                    return;
+                }
+            }
+            else if(selectedFilter.operator ==("Compressed Binary PCD(*.pcd)"))
+            {
+                if(io::savePCDFileBinaryCompressed(fileName.toUtf8().
+                                                   constData(),
+                                                   *mpSelectedCloud) == -1)
+                {
+                    QMessageBox::information(this,
+                                             "Error",
+                                             fileName + " failed to save.");
+                    return;
+                }
+            }
             mUi->saveButton->setText(QString("Saved"));
         }
     }

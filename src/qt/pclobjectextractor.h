@@ -64,11 +64,8 @@ private:
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectedViewer;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedCloud;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelectedCloud;
-    std::string mLoadedCloudType;
-    std::string mSelectedCloudType;
     QFileDialog mFileDialog;
     pcl::PCDReader mPCDReader;
-    pcl::PCDWriter mPCDWriter;
     int mNumPointsSelected;
 };
 
