@@ -15,23 +15,37 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
     mUi->setupUi(this);
     mpLoadedCloud.reset(new PointCloud<PointXYZ>);
     mpSelectedCloud.reset(new PointCloud<PointXYZ>);
-    mpLoadedViewer.reset(new visualization::PCLVisualizer("Viewer", false));
+    mpModelCloud.reset(new PointCloud<PointXYZ>);
+    mpSceneCloud.reset(new PointCloud<PointXYZ>);
+    mpCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpSelectedViewer.reset(new visualization::PCLVisualizer("Viewer", false));
+    mpModelViewer.reset(new visualization::PCLVisualizer("Viewer", false));
+    mpSceneViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mFileDialog.setDefaultSuffix(QString("pcd"));
 
     // Set up QVTK widgets and viewers.
-    mUi->qvtkWidget->SetRenderWindow(mpLoadedViewer->getRenderWindow());
+    mUi->qvtkWidget_1->SetRenderWindow(mpCloudViewer->getRenderWindow());
     mUi->qvtkWidget_2->SetRenderWindow(mpSelectedViewer->getRenderWindow());
-    mpLoadedViewer->setupInteractor(mUi->qvtkWidget->GetInteractor(),
-                                    mUi->qvtkWidget->GetRenderWindow());
+    mUi->qvtkWidget_3->SetRenderWindow(mpModelViewer->getRenderWindow());
+    mUi->qvtkWidget_4->SetRenderWindow(mpSceneViewer->getRenderWindow());
+    mpCloudViewer->setupInteractor(mUi->qvtkWidget_1->GetInteractor(),
+                                   mUi->qvtkWidget_1->GetRenderWindow());
     mpSelectedViewer->setupInteractor(mUi->qvtkWidget_2->GetInteractor(),
                                       mUi->qvtkWidget_2->GetRenderWindow());
-    mpLoadedViewer->addPointCloud(mpLoadedCloud, "");
+    mpModelViewer->setupInteractor(mUi->qvtkWidget_3->GetInteractor(),
+                                   mUi->qvtkWidget_3->GetRenderWindow());
+    mpSceneViewer->setupInteractor(mUi->qvtkWidget_4->GetInteractor(),
+                                   mUi->qvtkWidget_4->GetRenderWindow());
+    mpCloudViewer->addPointCloud(mpLoadedCloud, "");
     mpSelectedViewer->addPointCloud(mpSelectedCloud, "");
-    mpLoadedViewer->setShowFPS(false);
+    mpModelViewer->addPointCloud(mpModelCloud, "");
+    mpSceneViewer->addPointCloud(mpSceneCloud, "");
+    mpCloudViewer->setShowFPS(false);
     mpSelectedViewer->setShowFPS(false);
-    mpLoadedViewer->registerPointPickingCallback(&PointSelectionCallback, this);
-    mpLoadedViewer->registerAreaPickingCallback(&AreaSelectionCallback, this);
+    mpModelViewer->setShowFPS(false);
+    mpSceneViewer->setShowFPS(false);
+    mpCloudViewer->registerPointPickingCallback(&PointSelectionCallback, this);
+    mpCloudViewer->registerAreaPickingCallback(&AreaSelectionCallback, this);
     mpSelectedViewer->registerPointPickingCallback(&PointRemoveCallback, this);
     mpSelectedViewer->registerAreaPickingCallback(&AreaRemoveCallback, this);
 
@@ -347,7 +361,7 @@ void PCLObjectExtractor::on_loadButton_clicked()
 {
     QString fileName = mFileDialog.getOpenFileName(this,
                                                    tr("Load Point Cloud"),
-                                                   QDir::homePath(),
+                                                   QDir::currentPath(),
                                                    "PCD Files (*.pcd)");
     if(!fileName.isEmpty())
     {
@@ -393,10 +407,10 @@ void PCLObjectExtractor::on_loadButton_clicked()
         fromPCLPointCloud2(cloud, *mpLoadedCloud);
         mpSelectedCloud->points.clear();
         mpSelectedViewer->updatePointCloud(mpSelectedCloud, "");
-        mpLoadedViewer->updatePointCloud(mpLoadedCloud, "");
-        mpLoadedViewer->resetCamera();
+        mpCloudViewer->updatePointCloud(mpLoadedCloud, "");
+        mpCloudViewer->resetCamera();
         mpSelectedViewer->resetCamera();
-        mUi->qvtkWidget->update();
+        mUi->qvtkWidget_1->update();
         mUi->qvtkWidget_2->update();
         mUi->pointCloudSourceLabel->setText(fileName.split("/").last());
     }
@@ -411,7 +425,7 @@ void PCLObjectExtractor::on_saveButton_clicked()
     QString selectedFilter;
     QString fileName = mFileDialog.getSaveFileName(this,
                                                    tr("Save Selected Object"),
-                                                   QDir::homePath(),
+                                                   QDir::currentPath(),
                                                    QString("ASCII PCD(*.pcd)") +
                                                    ";;Binary PCD(*.pcd)" +
                                                    ";;Compressed Binary PCD" +

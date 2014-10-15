@@ -60,10 +60,14 @@ private:
                             const pcl::visualization::AreaPickingEvent& event,
                             void* args);
     Ui::PCLObjectExtractor *mUi;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpLoadedViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpCloudViewer;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectedViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpModelViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSceneViewer;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedCloud;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelectedCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpModelCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSceneCloud;
     QFileDialog mFileDialog;
     pcl::PCDReader mPCDReader;
     int mNumPointsSelected;

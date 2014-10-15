@@ -17,6 +17,8 @@ set(SOURCES src/main.cpp src/qt/pclobjectextractor.cpp)
 set(HEADERS src/qt/pclobjectextractor.h)
 set(FORMS src/qt/pclobjectextractor.ui)
 set(VTK_LIBRARIES vtkRendering vtkGraphics vtkHybrid QVTK)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin/)
+set(CMAKE_BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bin/)
 
 QT4_WRAP_UI(FORMS_HEADERS ${FORMS})
 QT4_WRAP_CPP(HEADERS_MOC ${HEADERS})
