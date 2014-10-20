@@ -15,6 +15,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QIcon>
+#include <QVTKWidget.h>
+#include <QFocusEvent>
 
 
 namespace Ui
@@ -45,6 +47,10 @@ private slots:
     void on_actionExit_triggered();
     void on_loadButton_clicked();
     void on_saveButton_clicked();
+    void widget1Focus();
+    void widget2Focus();
+    void widget3Focus();
+    void widget4Focus();
 
 private:
     static void PointSelectionCallback(
@@ -59,9 +65,11 @@ private:
     static void AreaRemoveCallback(
                             const pcl::visualization::AreaPickingEvent& event,
                             void* args);
+    void ResetStyleSheet(int currentWidgetFocus);
+    void UpdateSelectedPoints();
     Ui::PCLObjectExtractor *mUi;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpCloudViewer;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectedViewer;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectionViewer;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpModelViewer;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSceneViewer;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedCloud;
@@ -71,6 +79,7 @@ private:
     QFileDialog mFileDialog;
     pcl::PCDReader mPCDReader;
     int mNumPointsSelected;
+    int mPreviousWidgetFocus;
 };
 
 #endif // PCLOBJECTEXTRACTOR_H
