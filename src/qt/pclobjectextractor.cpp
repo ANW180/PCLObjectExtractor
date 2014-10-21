@@ -14,37 +14,50 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
 {
     mPreviousWidgetFocus = 0;
     mUi->setupUi(this);
-    mpLoadedCloud.reset(new PointCloud<PointXYZ>);
-    mpSelectedCloud.reset(new PointCloud<PointXYZ>);
-    mpModelCloud.reset(new PointCloud<PointXYZ>);
-    mpSceneCloud.reset(new PointCloud<PointXYZ>);
+    mpLoaded.reset(new PointCloud<PointXYZ>);
+    mpSelected.reset(new PointCloud<PointXYZ>);
+    mpModel.reset(new PointCloud<PointXYZ>);
+    mpScene.reset(new PointCloud<PointXYZ>);
+    mpOutput.reset(new PointCloud<PointXYZ>);
+    mpModelDescriptors.reset(new PointCloud<SHOT352>);
+    mpSceneDescriptors.reset(new PointCloud<SHOT352>);
+    mpModelNormals.reset(new PointCloud<Normal>);
+    mpSceneNormals.reset(new PointCloud<Normal>);
+    mpModelKeypoints.reset(new PointCloud<PointXYZ>);
+    mpSceneKeypoints.reset(new PointCloud<PointXYZ>);
     mpCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpSelectionViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpModelViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpSceneViewer.reset(new visualization::PCLVisualizer("Viewer", false));
+    mpOutputViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mFileDialog.setDefaultSuffix(QString("pcd"));
 
     // Set up QVTK widgets and viewers.
     mUi->qvtkWidget_1->SetRenderWindow(mpCloudViewer->getRenderWindow());
     mUi->qvtkWidget_2->SetRenderWindow(mpSelectionViewer->getRenderWindow());
-    mUi->qvtkWidget_3->SetRenderWindow(mpModelViewer->getRenderWindow());
-    mUi->qvtkWidget_4->SetRenderWindow(mpSceneViewer->getRenderWindow());
+    mUi->qvtkWidget_3->SetRenderWindow(mpSceneViewer->getRenderWindow());
+    mUi->qvtkWidget_4->SetRenderWindow(mpModelViewer->getRenderWindow());
+    mUi->qvtkWidget_5->SetRenderWindow(mpOutputViewer->getRenderWindow());
     mpCloudViewer->setupInteractor(mUi->qvtkWidget_1->GetInteractor(),
                                    mUi->qvtkWidget_1->GetRenderWindow());
     mpSelectionViewer->setupInteractor(mUi->qvtkWidget_2->GetInteractor(),
                                       mUi->qvtkWidget_2->GetRenderWindow());
-    mpModelViewer->setupInteractor(mUi->qvtkWidget_3->GetInteractor(),
+    mpSceneViewer->setupInteractor(mUi->qvtkWidget_3->GetInteractor(),
                                    mUi->qvtkWidget_3->GetRenderWindow());
-    mpSceneViewer->setupInteractor(mUi->qvtkWidget_4->GetInteractor(),
+    mpModelViewer->setupInteractor(mUi->qvtkWidget_4->GetInteractor(),
                                    mUi->qvtkWidget_4->GetRenderWindow());
-    mpCloudViewer->addPointCloud(mpLoadedCloud, "");
-    mpSelectionViewer->addPointCloud(mpSelectedCloud, "");
-    mpModelViewer->addPointCloud(mpModelCloud, "");
-    mpSceneViewer->addPointCloud(mpSceneCloud, "");
+    mpOutputViewer->setupInteractor(mUi->qvtkWidget_5->GetInteractor(),
+                                   mUi->qvtkWidget_5->GetRenderWindow());
+    mpCloudViewer->addPointCloud(mpLoaded, "");
+    mpSelectionViewer->addPointCloud(mpSelected, "");
+    mpModelViewer->addPointCloud(mpModel, "");
+    mpSceneViewer->addPointCloud(mpScene, "");
+    mpOutputViewer->addPointCloud(mpOutput, "");
     mpCloudViewer->setShowFPS(false);
     mpSelectionViewer->setShowFPS(false);
     mpModelViewer->setShowFPS(false);
     mpSceneViewer->setShowFPS(false);
+    mpOutputViewer->setShowFPS(false);
     mpCloudViewer->registerPointPickingCallback(&PointSelectionCallback, this);
     mpCloudViewer->registerAreaPickingCallback(&AreaSelectionCallback, this);
     mpSelectionViewer->registerPointPickingCallback(&PointRemoveCallback, this);
@@ -75,14 +88,6 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
             SIGNAL(mouseEvent(QMouseEvent*)),
             this,
             SLOT(widget2Focus()));
-    connect(mUi->qvtkWidget_3,
-            SIGNAL(mouseEvent(QMouseEvent*)),
-            this,
-            SLOT(widget3Focus()));
-    connect(mUi->qvtkWidget_4,
-            SIGNAL(mouseEvent(QMouseEvent*)),
-            this,
-            SLOT(widget4Focus()));
 }
 
 
@@ -101,8 +106,8 @@ PCLObjectExtractor::~PCLObjectExtractor()
  */
 void PCLObjectExtractor::PointHighlightSlot(int pointIndex)
 {
-    mpSelectedCloud->points.at(pointIndex) =
-            mpLoadedCloud->points.at(pointIndex);
+    mpSelected->points.at(pointIndex) =
+            mpLoaded->points.at(pointIndex);
     UpdateSelectedPoints();
     mpSelectionViewer->resetCamera();
     mUi->qvtkWidget_2->update();
@@ -119,10 +124,10 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
     for(int i = 0; i < pointIndices.size(); i++)
     {
         int index = pointIndices.at(i);
-        if(index <= mpLoadedCloud->points.size() &&
+        if(index <= mpLoaded->points.size() &&
                 index >= 0)
         {
-            mpSelectedCloud->points[index] = mpLoadedCloud->points[index];
+            mpSelected->points[index] = mpLoaded->points[index];
         }
         else
         {
@@ -147,9 +152,9 @@ void PCLObjectExtractor::AreaHighlightSlot(std::vector<int> pointIndices)
  */
 void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
 {
-    mpSelectedCloud->points[pointIndex].x = NAN;
-    mpSelectedCloud->points[pointIndex].y = NAN;
-    mpSelectedCloud->points[pointIndex].z = NAN;
+    mpSelected->points[pointIndex].x = NAN;
+    mpSelected->points[pointIndex].y = NAN;
+    mpSelected->points[pointIndex].z = NAN;
     UpdateSelectedPoints();
     mUi->qvtkWidget_2->update();
 }
@@ -162,20 +167,41 @@ void PCLObjectExtractor::PointRemoveSlot(int pointIndex)
 void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
 {
     bool errorOccured = false;
-    for(int i = 0; i < pointIndices.size(); i++)
+    mNumPointsSelected = 0;
+    std::vector<int>::iterator it;
+    for(it = pointIndices.begin();
+        it != pointIndices.end();
+        it++)
     {
-        int index = pointIndices.at(i);
-        if(index <= mpSelectedCloud->points.size() &&
-                index >= 0)
+        if((*it) <= mpSelected->points.size() &&
+                (*it) >= 0)
         {
-            mpSelectedCloud->points[index].x = NAN;
-            mpSelectedCloud->points[index].y = NAN;
-            mpSelectedCloud->points[index].z = NAN;
+            if(mpSelected->points.at(*it).x ==
+                    mpSelected->points.at(*it).x &&
+               mpSelected->points.at(*it).y ==
+                    mpSelected->points.at(*it).y &&
+               mpSelected->points.at(*it).z ==
+                    mpSelected->points.at(*it).z)
+            {
+                mNumPointsSelected++;
+            }
+            mpSelected->points.at(*it).x = NAN;
+            mpSelected->points.at(*it).y = NAN;
+            mpSelected->points.at(*it).z = NAN;
         }
         else
         {
             errorOccured = true;
         }
+    }
+    if(mNumPointsSelected > 0)
+    {
+        mUi->statusbar->showMessage(QString("%1 points selected")
+                                    .arg(mNumPointsSelected));
+    }
+    else
+    {
+        mUi->statusbar->showMessage(tr("No points were selected"));
     }
     if(errorOccured)
     {
@@ -183,8 +209,8 @@ void PCLObjectExtractor::AreaRemoveSlot(std::vector<int> pointIndices)
                                  "VTK Error",
                                  "There was an error in removing some points.");
     }
-        UpdateSelectedPoints();
-        mUi->qvtkWidget_2->update();
+    UpdateSelectedPoints();
+    mUi->qvtkWidget_2->update();
 }
 
 
@@ -217,9 +243,9 @@ void PCLObjectExtractor::on_actionExit_triggered()
 
 
 /**
- * @brief PCLObjectExtractor::on_loadButton_clicked
+ * @brief PCLObjectExtractor::on_loadCloudButton_clicked
  */
-void PCLObjectExtractor::on_loadButton_clicked()
+void PCLObjectExtractor::on_loadCloudButton_clicked()
 {
     QString fileName = mFileDialog.getOpenFileName(this,
                                                    tr("Load Point Cloud"),
@@ -266,19 +292,19 @@ void PCLObjectExtractor::on_loadButton_clicked()
                                      fileName + " failed to open.");
             return;
         }
-        fromPCLPointCloud2(cloud, *mpLoadedCloud);
-        mpSelectedCloud->points.resize(mpLoadedCloud->points.size());
+        fromPCLPointCloud2(cloud, *mpLoaded);
+        mpSelected->points.resize(mpLoaded->points.size());
         PointCloud<PointXYZ>::iterator it;
-        for(it = mpSelectedCloud->points.begin();
-            it < mpSelectedCloud->points.end();
+        for(it = mpSelected->points.begin();
+            it < mpSelected->points.end();
             it++)
         {
             (*it).x = NAN;
             (*it).y = NAN;
             (*it).z = NAN;
         }
-        mpSelectionViewer->updatePointCloud(mpSelectedCloud, "");
-        mpCloudViewer->updatePointCloud(mpLoadedCloud, "");
+        mpSelectionViewer->updatePointCloud(mpSelected, "");
+        mpCloudViewer->updatePointCloud(mpLoaded, "");
         mpCloudViewer->resetCamera();
         mpSelectionViewer->resetCamera();
         mUi->pointCloudSourceLabel->setText(fileName.split("/").last());
@@ -287,9 +313,9 @@ void PCLObjectExtractor::on_loadButton_clicked()
 
 
 /**
- * @brief PCLObjectExtractor::on_saveButton_clicked
+ * @brief PCLObjectExtractor::on_saveCloudButton_clicked
  */
-void PCLObjectExtractor::on_saveButton_clicked()
+void PCLObjectExtractor::on_saveCloudButton_clicked()
 {
     QString selectedFilter;
     QString fileName = mFileDialog.getSaveFileName(this,
@@ -306,16 +332,16 @@ void PCLObjectExtractor::on_saveButton_clicked()
         {
             fileName += ".pcd";
         }
-        if(mpSelectedCloud->points.size() > 0)
+        if(mpSelected->points.size() > 0)
         {
-            mpSelectedCloud->height = 1;
-            mpSelectedCloud->width = (int)
-                    mpSelectedCloud->points.size();
-            mpSelectedCloud->is_dense = false;
+            mpSelected->height = 1;
+            mpSelected->width = (int)
+                    mpSelected->points.size();
+            mpSelected->is_dense = false;
             if(selectedFilter.operator ==("ASCII PCD(*.pcd)"))
             {
                 if(io::savePCDFileASCII(fileName.toUtf8().constData(),
-                                        *mpSelectedCloud) == -1)
+                                        *mpSelected) == -1)
                 {
                     QMessageBox::information(this,
                                              "Error",
@@ -326,7 +352,7 @@ void PCLObjectExtractor::on_saveButton_clicked()
             else if(selectedFilter.operator ==("Binary PCD(*.pcd)"))
             {
                 if(io::savePCDFileBinary(fileName.toUtf8().constData(),
-                                         *mpSelectedCloud) == -1)
+                                         *mpSelected) == -1)
                 {
                     QMessageBox::information(this,
                                              "Error",
@@ -338,7 +364,7 @@ void PCLObjectExtractor::on_saveButton_clicked()
             {
                 if(io::savePCDFileBinaryCompressed(fileName.toUtf8().
                                                    constData(),
-                                                   *mpSelectedCloud) == -1)
+                                                   *mpSelected) == -1)
                 {
                     QMessageBox::information(this,
                                              "Error",
@@ -346,8 +372,190 @@ void PCLObjectExtractor::on_saveButton_clicked()
                     return;
                 }
             }
-            mUi->saveButton->setText(QString("Saved"));
+            mUi->saveCloudButton->setText(QString("Saved"));
         }
+    }
+}
+
+
+/**
+ * @brief PCLObjectExtractor::on_loadModelButton_clicked
+ */
+void PCLObjectExtractor::on_loadModelButton_clicked()
+{
+    QString fileName = mFileDialog.getOpenFileName(this,
+                                                   tr("Load Point Cloud"),
+                                                   QDir::currentPath(),
+                                                   "PCD Files (*.pcd)");
+    if(!fileName.isEmpty())
+    {
+        PCLPointCloud2 cloud;
+        Eigen::Vector4f origin;
+        Eigen::Quaternionf orientation;
+        int fileVersion, dataType;
+        unsigned int dataIdx;
+        if(mPCDReader.readHeader(fileName.toUtf8().constData(),
+                                 cloud,
+                                 origin,
+                                 orientation,
+                                 fileVersion,
+                                 dataType,
+                                 dataIdx) < 0)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " failed to open.");
+            return;
+        }
+        std::string type;
+        for (size_t i = 0; i < cloud.fields.size(); i++)
+        {
+            type += cloud.fields.at(i).name;
+
+        }
+        if(type.find(std::string("xyz")) == std::string::npos)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " does not contain 3D points");
+            return;
+        }
+        if(mPCDReader.read(fileName.toUtf8().constData(),
+                           cloud) < 0)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " failed to open.");
+            return;
+        }
+        fromPCLPointCloud2(cloud, *mpModel);
+        mpModelViewer->updatePointCloud(mpModel, "");
+        mpModelViewer->resetCamera();
+        mUi->modelCloudSourceLabel->setText(fileName.split("/").last());
+    }
+}
+
+
+/**
+ * @brief PCLObjectExtractor::on_loadSceneButton_clicked
+ */
+void PCLObjectExtractor::on_loadSceneButton_clicked()
+{
+    QString fileName = mFileDialog.getOpenFileName(this,
+                                                   tr("Load Point Cloud"),
+                                                   QDir::currentPath(),
+                                                   "PCD Files (*.pcd)");
+    if(!fileName.isEmpty())
+    {
+        PCLPointCloud2 cloud;
+        Eigen::Vector4f origin;
+        Eigen::Quaternionf orientation;
+        int fileVersion, dataType;
+        unsigned int dataIdx;
+        if(mPCDReader.readHeader(fileName.toUtf8().constData(),
+                                 cloud,
+                                 origin,
+                                 orientation,
+                                 fileVersion,
+                                 dataType,
+                                 dataIdx) < 0)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " failed to open.");
+            return;
+        }
+        std::string type;
+        for (size_t i = 0; i < cloud.fields.size(); i++)
+        {
+            type += cloud.fields.at(i).name;
+
+        }
+        if(type.find(std::string("xyz")) == std::string::npos)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " does not contain 3D points");
+            return;
+        }
+        if(mPCDReader.read(fileName.toUtf8().constData(),
+                           cloud) < 0)
+        {
+            QMessageBox::information(this,
+                                     "Error",
+                                     fileName + " failed to open.");
+            return;
+        }
+        fromPCLPointCloud2(cloud, *mpScene);
+        mpSceneViewer->updatePointCloud(mpScene, "");
+        mpSceneViewer->resetCamera();
+        mUi->sceneCloudSourceLabel->setText(fileName.split("/").last());
+    }
+}
+
+
+/**
+ * @brief PCLObjectExtractor::on_recognizeButton_clicked
+ */
+void PCLObjectExtractor::on_recognizeButton_clicked()
+{
+    if(mpScene->points.size() == 0 || mpModel->points.size() == 0)
+    {
+        return;
+    }
+    else
+    {
+        // Algorithm params
+        float model_ss_ (0.001f);
+        float scene_ss_ (0.03f);
+        float rf_rad_ (0.015f);
+        float descr_rad_ (0.02f);
+        float cg_size_ (0.01f);
+        float cg_thresh_ (5.0f);
+
+        // Compute Normals
+        NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> norm_est;
+        norm_est.setKSearch(10);
+        norm_est.setInputCloud(mpModel);
+        norm_est.compute(*mpModelNormals);
+        norm_est.setInputCloud(mpScene);
+        norm_est.compute(*mpSceneNormals);
+
+        // Downsample to extract keypoints
+        PointCloud<int> sampled_indices;
+        UniformSampling<pcl::PointXYZ> uniform_sampling;
+        uniform_sampling.setInputCloud(mpModel);
+        uniform_sampling.setRadiusSearch(model_ss_);
+        uniform_sampling.compute (sampled_indices);
+        copyPointCloud (*mpModel,
+                        sampled_indices.points,
+                        *mpModelKeypoints);
+
+        uniform_sampling.setInputCloud(mpScene);
+        uniform_sampling.setRadiusSearch(scene_ss_);
+        uniform_sampling.compute(sampled_indices);
+        copyPointCloud(*mpScene,
+                       sampled_indices.points,
+                       *mpSceneKeypoints);
+
+        // Compute descriptor for keypoints
+        SHOTEstimationOMP<PointXYZ, Normal, SHOT352> descr_est;
+        descr_est.setRadiusSearch(descr_rad_);
+
+        descr_est.setInputCloud(mpModelKeypoints);
+        descr_est.setInputNormals(mpModelNormals);
+        descr_est.setSearchSurface(mpModel);
+        descr_est.compute(*mpModelDescriptors);
+
+        descr_est.setInputCloud(mpSceneKeypoints);
+        descr_est.setInputNormals(mpSceneNormals);
+        descr_est.setSearchSurface(mpScene);
+        descr_est.compute(*mpSceneDescriptors);
+
+        // Find Model-Scene correspondences with KdTree
+
+        mpOutputViewer->updatePointCloud(mpOutput, "");
+        mpOutputViewer->resetCamera();
     }
 }
 
@@ -450,14 +658,14 @@ void PCLObjectExtractor::AreaRemoveCallback(
     }
     else
     {
-        ui->statusBar()->showMessage(
-                    QString("%1 points selected")
-                    .arg(indices.size()));
         emit ui->AreaRemoveSignal(indices);
     }
 }
 
 
+/**
+ * @brief PCLObjectExtractor::widget1Focus
+ */
 void PCLObjectExtractor::widget1Focus()
 {
     if(mPreviousWidgetFocus != 1 &&
@@ -466,7 +674,7 @@ void PCLObjectExtractor::widget1Focus()
         ResetStyleSheet(1);
     }
     mUi->groupBox_1->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-                                   "1px solid red;\n    border-radius:" +
+                                   "2px solid red;\n    border-radius:" +
                                    "9px;\n    margin-top: 0.5em;\n}\n\n" +
                                    "QGroupBox::title {\n    subcontrol-or" +
                                    "igin: margin;\n    left: 10px;\n    " +
@@ -475,6 +683,9 @@ void PCLObjectExtractor::widget1Focus()
 }
 
 
+/**
+ * @brief PCLObjectExtractor::widget2Focus
+ */
 void PCLObjectExtractor::widget2Focus()
 {
     if(mPreviousWidgetFocus != 2 &&
@@ -483,7 +694,7 @@ void PCLObjectExtractor::widget2Focus()
         ResetStyleSheet(2);
     }
     mUi->groupBox_2->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-                                   "1px solid red;\n    border-radius:" +
+                                   "2px solid red;\n    border-radius:" +
                                    "9px;\n    margin-top: 0.5em;\n}\n\n" +
                                    "QGroupBox::title {\n    subcontrol-or" +
                                    "igin: margin;\n    left: 10px;\n    " +
@@ -492,40 +703,10 @@ void PCLObjectExtractor::widget2Focus()
 }
 
 
-void PCLObjectExtractor::widget3Focus()
-{
-    if(mPreviousWidgetFocus != 3 &&
-            mPreviousWidgetFocus != 0)
-    {
-        ResetStyleSheet(3);
-    }
-//    mUi->groupBox_1->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-//                                   "1px solid red;\n    border-radius:" +
-//                                   "9px;\n    margin-top: 0.5em;\n}\n\n" +
-//                                   "QGroupBox::title {\n    subcontrol-or" +
-//                                   "igin: margin;\n    left: 10px;\n    " +
-//                                   "padding: 0 3px 0 3px;\n}");
-    mPreviousWidgetFocus = 3;
-}
-
-
-void PCLObjectExtractor::widget4Focus()
-{
-    if(mPreviousWidgetFocus != 4 &&
-            mPreviousWidgetFocus != 0)
-    {
-        ResetStyleSheet(4);
-    }
-//    mUi->groupBox_1->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-//                                   "1px solid red;\n    border-radius:" +
-//                                   "9px;\n    margin-top: 0.5em;\n}\n\n" +
-//                                   "QGroupBox::title {\n    subcontrol-or" +
-//                                   "igin: margin;\n    left: 10px;\n    " +
-//                                   "padding: 0 3px 0 3px;\n}");
-    mPreviousWidgetFocus = 4;
-}
-
-
+/**
+ * @brief PCLObjectExtractor::ResetStyleSheet
+ * @param currentWidgetFocus
+ */
 void PCLObjectExtractor::ResetStyleSheet(int currentWidgetFocus)
 {
     if(currentWidgetFocus == 1)
@@ -546,46 +727,19 @@ void PCLObjectExtractor::ResetStyleSheet(int currentWidgetFocus)
                                        "igin: margin;\n    left: 10px;\n    " +
                                        "padding: 0 3px 0 3px;\n}");
     }
-    else if(currentWidgetFocus == 3)
-    {
-        mUi->groupBox_1->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-                                       "1px solid gray;\n    border-radius:" +
-                                       "9px;\n    margin-top: 0.5em;\n}\n\n" +
-                                       "QGroupBox::title {\n    subcontrol-or" +
-                                       "igin: margin;\n    left: 10px;\n    " +
-                                       "padding: 0 3px 0 3px;\n}");
-        mUi->groupBox_2->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-                                       "1px solid gray;\n    border-radius:" +
-                                       "9px;\n    margin-top: 0.5em;\n}\n\n" +
-                                       "QGroupBox::title {\n    subcontrol-or" +
-                                       "igin: margin;\n    left: 10px;\n    " +
-                                       "padding: 0 3px 0 3px;\n}");
-    }
-    else if(currentWidgetFocus == 4)
-    {
-        mUi->groupBox_1->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-                                       "1px solid gray;\n    border-radius:" +
-                                       "9px;\n    margin-top: 0.5em;\n}\n\n" +
-                                       "QGroupBox::title {\n    subcontrol-or" +
-                                       "igin: margin;\n    left: 10px;\n    " +
-                                       "padding: 0 3px 0 3px;\n}");
-        mUi->groupBox_2->setStyleSheet(QString("QGroupBox") + "{\n    border:" +
-                                       "1px solid gray;\n    border-radius:" +
-                                       "9px;\n    margin-top: 0.5em;\n}\n\n" +
-                                       "QGroupBox::title {\n    subcontrol-or" +
-                                       "igin: margin;\n    left: 10px;\n    " +
-                                       "padding: 0 3px 0 3px;\n}");
-    }
 }
 
 
+/**
+ * @brief PCLObjectExtractor::UpdateSelectedPoints
+ */
 void PCLObjectExtractor::UpdateSelectedPoints()
 {
-    mpSelectionViewer->updatePointCloud(mpSelectedCloud, "");
+    mpSelectionViewer->updatePointCloud(mpSelected, "");
     PointCloud<PointXYZ>::iterator it;
     int mNumPointsSelected = 0;
-    for(it = mpSelectedCloud->points.begin();
-        it != mpSelectedCloud->points.end();
+    for(it = mpSelected->points.begin();
+        it != mpSelected->points.end();
         it++)
     {
         if((*it).x == (*it).x &&
@@ -598,14 +752,14 @@ void PCLObjectExtractor::UpdateSelectedPoints()
     mUi->pointsSelectedLabel->setText(
                 QString(QString::number(mNumPointsSelected)
                         + " points"));
-    if(mpSelectedCloud->points.size() > 0)
+    if(mpSelected->points.size() > 0)
     {
-        mUi->saveButton->setEnabled(true);
-        mUi->saveButton->setText(QString("Save"));
+        mUi->saveCloudButton->setEnabled(true);
+        mUi->saveCloudButton->setText(QString("Save"));
     }
-    else if(mpSelectedCloud->points.size() == 0)
+    else if(mpSelected->points.size() == 0)
     {
-        mUi->saveButton->setEnabled(false);
-        mUi->saveButton->setText(QString("Save"));
+        mUi->saveCloudButton->setEnabled(false);
+        mUi->saveCloudButton->setText(QString("Save"));
     }
 }

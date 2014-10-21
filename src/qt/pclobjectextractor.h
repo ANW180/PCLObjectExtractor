@@ -7,6 +7,13 @@
 #include <pcl/point_types.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/impl/instantiate.hpp>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/correspondence.h>
+#include <pcl/features/normal_3d_omp.h>
+#include <pcl/features/shot_omp.h>
+#include <pcl/features/board.h>
+#include <pcl/keypoints/uniform_sampling.h>
+#include <pcl/recognition/cg/hough_3d.h>
 #include <vtkRenderWindow.h>
 #include <vtkEventQtSlotConnect.h>
 #include <pcl/filters/filter.h>
@@ -17,7 +24,6 @@
 #include <QIcon>
 #include <QVTKWidget.h>
 #include <QFocusEvent>
-
 
 namespace Ui
 {
@@ -45,12 +51,13 @@ private slots:
     void AreaRemoveSlot(std::vector<int> pointIndices);
     void on_actionHelp_triggered();
     void on_actionExit_triggered();
-    void on_loadButton_clicked();
-    void on_saveButton_clicked();
+    void on_loadCloudButton_clicked();
+    void on_saveCloudButton_clicked();
+    void on_loadModelButton_clicked();
+    void on_loadSceneButton_clicked();
+    void on_recognizeButton_clicked();
     void widget1Focus();
     void widget2Focus();
-    void widget3Focus();
-    void widget4Focus();
 
 private:
     static void PointSelectionCallback(
@@ -68,14 +75,22 @@ private:
     void ResetStyleSheet(int currentWidgetFocus);
     void UpdateSelectedPoints();
     Ui::PCLObjectExtractor *mUi;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpCloudViewer;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSelectionViewer;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpModelViewer;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> mpSceneViewer;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoadedCloud;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelectedCloud;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpModelCloud;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSceneCloud;
+    pcl::visualization::PCLVisualizer::Ptr mpCloudViewer;
+    pcl::visualization::PCLVisualizer::Ptr mpSelectionViewer;
+    pcl::visualization::PCLVisualizer::Ptr mpModelViewer;
+    pcl::visualization::PCLVisualizer::Ptr mpSceneViewer;
+    pcl::visualization::PCLVisualizer::Ptr mpOutputViewer;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpLoaded;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelected;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpModel;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpScene;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpOutput;
+    pcl::PointCloud<pcl::SHOT352>::Ptr mpModelDescriptors;
+    pcl::PointCloud<pcl::SHOT352>::Ptr mpSceneDescriptors;
+    pcl::PointCloud<pcl::Normal>::Ptr mpModelNormals;
+    pcl::PointCloud<pcl::Normal>::Ptr mpSceneNormals;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpModelKeypoints;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSceneKeypoints;
     QFileDialog mFileDialog;
     pcl::PCDReader mPCDReader;
     int mNumPointsSelected;
