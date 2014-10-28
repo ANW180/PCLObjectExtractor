@@ -14,6 +14,8 @@
 #include <pcl/features/board.h>
 #include <pcl/keypoints/uniform_sampling.h>
 #include <pcl/recognition/cg/hough_3d.h>
+#include <pcl/recognition/cg/geometric_consistency.h>
+#include <pcl/common/transforms.h>
 #include <vtkRenderWindow.h>
 #include <vtkEventQtSlotConnect.h>
 #include <pcl/filters/filter.h>
@@ -74,6 +76,7 @@ private:
                             void* args);
     void ResetStyleSheet(int currentWidgetFocus);
     void UpdateSelectedPoints();
+    double ComputeCloudResolution(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr & cloud);
     Ui::PCLObjectExtractor *mUi;
     pcl::visualization::PCLVisualizer::Ptr mpCloudViewer;
     pcl::visualization::PCLVisualizer::Ptr mpSelectionViewer;
@@ -84,13 +87,26 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpSelected;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpModel;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpScene;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpOutput;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpOutputModel;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpOutputScene;
     pcl::PointCloud<pcl::SHOT352>::Ptr mpModelDescriptors;
     pcl::PointCloud<pcl::SHOT352>::Ptr mpSceneDescriptors;
     pcl::PointCloud<pcl::Normal>::Ptr mpModelNormals;
     pcl::PointCloud<pcl::Normal>::Ptr mpSceneNormals;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpModelKeypoints;
     pcl::PointCloud<pcl::PointXYZ>::Ptr mpSceneKeypoints;
+    pcl::UniformSampling<pcl::PointXYZ>::Ptr mpUniformSampling;
+    pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal>::Ptr mpNormalEstimate;
+    pcl::SHOTEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::SHOT352>::Ptr
+    mpDescriptorEstimate;
+    pcl::CorrespondencesPtr mpModelSceneCorrespondences;
+    pcl::PointCloud<pcl::ReferenceFrame>::Ptr mpModelReference;
+    pcl::PointCloud<pcl::ReferenceFrame>::Ptr mpSceneReference;
+    pcl::BOARDLocalReferenceFrameEstimation<
+    pcl::PointXYZ,
+    pcl::Normal,
+    pcl::ReferenceFrame>::Ptr
+    mpReferenceEstimator;
     QFileDialog mFileDialog;
     pcl::PCDReader mPCDReader;
     int mNumPointsSelected;

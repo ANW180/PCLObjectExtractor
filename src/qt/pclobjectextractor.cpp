@@ -18,13 +18,27 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
     mpSelected.reset(new PointCloud<PointXYZ>);
     mpModel.reset(new PointCloud<PointXYZ>);
     mpScene.reset(new PointCloud<PointXYZ>);
-    mpOutput.reset(new PointCloud<PointXYZ>);
+    mpOutputModel.reset(new PointCloud<PointXYZ>);
+    mpOutputScene.reset(new PointCloud<PointXYZ>);
     mpModelDescriptors.reset(new PointCloud<SHOT352>);
     mpSceneDescriptors.reset(new PointCloud<SHOT352>);
     mpModelNormals.reset(new PointCloud<Normal>);
     mpSceneNormals.reset(new PointCloud<Normal>);
     mpModelKeypoints.reset(new PointCloud<PointXYZ>);
     mpSceneKeypoints.reset(new PointCloud<PointXYZ>);
+    mpUniformSampling.reset(new UniformSampling<PointXYZ>);
+    mpNormalEstimate.reset(new NormalEstimationOMP<PointXYZ, Normal>);
+    mpDescriptorEstimate.reset(new SHOTEstimationOMP<
+                               PointXYZ,
+                               Normal,
+                               SHOT352>);
+    mpModelSceneCorrespondences.reset(new Correspondences);
+    mpModelReference.reset(new PointCloud<ReferenceFrame>);
+    mpSceneReference.reset(new PointCloud<ReferenceFrame>);
+    mpReferenceEstimator.reset(new BOARDLocalReferenceFrameEstimation<
+                               PointXYZ,
+                               Normal,
+                               ReferenceFrame>);
     mpCloudViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpSelectionViewer.reset(new visualization::PCLVisualizer("Viewer", false));
     mpModelViewer.reset(new visualization::PCLVisualizer("Viewer", false));
@@ -52,7 +66,6 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
     mpSelectionViewer->addPointCloud(mpSelected, "");
     mpModelViewer->addPointCloud(mpModel, "");
     mpSceneViewer->addPointCloud(mpScene, "");
-    mpOutputViewer->addPointCloud(mpOutput, "");
     mpCloudViewer->setShowFPS(false);
     mpSelectionViewer->setShowFPS(false);
     mpModelViewer->setShowFPS(false);
@@ -96,6 +109,23 @@ PCLObjectExtractor::PCLObjectExtractor(QWidget *parent) :
  */
 PCLObjectExtractor::~PCLObjectExtractor()
 {
+//    mpCloudViewer.reset();
+//    mpSelectionViewer.reset();
+//    mpModelViewer.reset();
+//    mpSceneViewer.reset();
+//    mpLoaded.reset();
+//    mpSelected.reset();
+//    mpModel.reset();
+//    mpScene.reset();
+//    mpOutputModel.reset();
+//    mpOutputScene.reset();
+//    mpModelDescriptors.reset();
+//    mpSceneDescriptors.reset();
+//    mpModelNormals.reset();
+//    mpSceneNormals.reset();
+//    mpModelKeypoints.reset();
+//    mpSceneKeypoints.reset();
+//    mpUniformSampling.reset();
     delete mUi;
 }
 
@@ -420,15 +450,15 @@ void PCLObjectExtractor::on_loadModelButton_clicked()
                                      fileName + " does not contain 3D points");
             return;
         }
-        if(mPCDReader.read(fileName.toUtf8().constData(),
-                           cloud) < 0)
+        if(io::loadPCDFile(fileName.toUtf8().constData(),
+                           *mpModel) < 0)
         {
             QMessageBox::information(this,
                                      "Error",
                                      fileName + " failed to open.");
             return;
         }
-        fromPCLPointCloud2(cloud, *mpModel);
+//        fromPCLPointCloud2(cloud, *mpModel);
         mpModelViewer->updatePointCloud(mpModel, "");
         mpModelViewer->resetCamera();
         mUi->modelCloudSourceLabel->setText(fileName.split("/").last());
@@ -478,15 +508,15 @@ void PCLObjectExtractor::on_loadSceneButton_clicked()
                                      fileName + " does not contain 3D points");
             return;
         }
-        if(mPCDReader.read(fileName.toUtf8().constData(),
-                           cloud) < 0)
+        if(io::loadPCDFile(fileName.toUtf8().constData(),
+                           *mpScene) < 0)
         {
             QMessageBox::information(this,
                                      "Error",
                                      fileName + " failed to open.");
             return;
         }
-        fromPCLPointCloud2(cloud, *mpScene);
+        //fromPCLPointCloud2(cloud, *mpScene);
         mpSceneViewer->updatePointCloud(mpScene, "");
         mpSceneViewer->resetCamera();
         mUi->sceneCloudSourceLabel->setText(fileName.split("/").last());
@@ -506,56 +536,165 @@ void PCLObjectExtractor::on_recognizeButton_clicked()
     else
     {
         // Algorithm params
-        float model_ss_ (0.001f);
+        float model_ss_ (0.01f);
         float scene_ss_ (0.03f);
         float rf_rad_ (0.015f);
         float descr_rad_ (0.02f);
         float cg_size_ (0.01f);
         float cg_thresh_ (5.0f);
 
+//        // Compute cloud resolution
+//        float resolution = static_cast<float>(ComputeCloudResolution(mpModel));
+//        if (resolution != 0.0f)
+//        {
+//          model_ss_   *= resolution;
+//          scene_ss_   *= resolution;
+//          rf_rad_     *= resolution;
+//          descr_rad_  *= resolution;
+//          cg_size_    *= resolution;
+//        }
+
         // Compute Normals
-        NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> norm_est;
-        norm_est.setKSearch(10);
-        norm_est.setInputCloud(mpModel);
-        norm_est.compute(*mpModelNormals);
-        norm_est.setInputCloud(mpScene);
-        norm_est.compute(*mpSceneNormals);
+        mpNormalEstimate->setKSearch(10);
+        mpNormalEstimate->setInputCloud(mpModel);
+        mpNormalEstimate->compute(*mpModelNormals);
+        mpNormalEstimate->setInputCloud(mpScene);
+        mpNormalEstimate->compute(*mpSceneNormals);
 
         // Downsample to extract keypoints
         PointCloud<int> sampled_indices;
-        UniformSampling<pcl::PointXYZ> uniform_sampling;
-        uniform_sampling.setInputCloud(mpModel);
-        uniform_sampling.setRadiusSearch(model_ss_);
-        uniform_sampling.compute (sampled_indices);
-        copyPointCloud (*mpModel,
-                        sampled_indices.points,
-                        *mpModelKeypoints);
+        mpUniformSampling->setInputCloud(mpModel);
+        mpUniformSampling->setRadiusSearch(model_ss_);
+        mpUniformSampling->compute(sampled_indices);
+        copyPointCloud(*mpModel,
+                       sampled_indices.points,
+                       *mpModelKeypoints);
 
-        uniform_sampling.setInputCloud(mpScene);
-        uniform_sampling.setRadiusSearch(scene_ss_);
-        uniform_sampling.compute(sampled_indices);
+        mpUniformSampling->setInputCloud(mpScene);
+        mpUniformSampling->setRadiusSearch(scene_ss_);
+        mpUniformSampling->compute(sampled_indices);
         copyPointCloud(*mpScene,
                        sampled_indices.points,
                        *mpSceneKeypoints);
 
         // Compute descriptor for keypoints
-        SHOTEstimationOMP<PointXYZ, Normal, SHOT352> descr_est;
-        descr_est.setRadiusSearch(descr_rad_);
+        mpDescriptorEstimate->setRadiusSearch(descr_rad_);
 
-        descr_est.setInputCloud(mpModelKeypoints);
-        descr_est.setInputNormals(mpModelNormals);
-        descr_est.setSearchSurface(mpModel);
-        descr_est.compute(*mpModelDescriptors);
+        mpDescriptorEstimate->setInputCloud(mpModelKeypoints);
+        mpDescriptorEstimate->setInputNormals(mpModelNormals);
+        mpDescriptorEstimate->setSearchSurface(mpModel);
+        mpDescriptorEstimate->compute(*mpModelDescriptors);
 
-        descr_est.setInputCloud(mpSceneKeypoints);
-        descr_est.setInputNormals(mpSceneNormals);
-        descr_est.setSearchSurface(mpScene);
-        descr_est.compute(*mpSceneDescriptors);
+        mpDescriptorEstimate->setInputCloud(mpSceneKeypoints);
+        mpDescriptorEstimate->setInputNormals(mpSceneNormals);
+        mpDescriptorEstimate->setSearchSurface(mpScene);
+        mpDescriptorEstimate->compute(*mpSceneDescriptors);
 
         // Find Model-Scene correspondences with KdTree
+        KdTreeFLANN<SHOT352> match_search;
+        match_search.setInputCloud(mpModelDescriptors);
 
-        mpOutputViewer->updatePointCloud(mpOutput, "");
-        mpOutputViewer->resetCamera();
+        // For each scene keypoint descriptor, find nearest neighbor into the
+        // model keypoints descriptor cloud and add it to the
+        // correspondences vector.
+        for(size_t i = 0; i < mpSceneDescriptors->size(); ++i)
+        {
+            std::vector<int> neigh_indices (1);
+            std::vector<float> neigh_sqr_dists (1);
+            // Skip NaNs
+            if(!pcl_isfinite(mpSceneDescriptors->at(i).descriptor[0]))
+            {
+                continue;
+            }
+            int found_neighs = match_search.nearestKSearch(mpSceneDescriptors->at(i),
+                                                           1,
+                                                           neigh_indices,
+                                                           neigh_sqr_dists);
+            // Add match only if the squared descriptor distance is less than
+            // 0.25 (SHOT descriptor distances are between 0 and 1 by design)
+            if(found_neighs == 1 && neigh_sqr_dists[0] < 0.25f)
+            {
+              Correspondence corr(neigh_indices[0],
+                                  static_cast<int>(i),
+                                  neigh_sqr_dists[0]);
+              mpModelSceneCorrespondences->push_back(corr);
+            }
+        }
+
+        // Actual clustering
+        mpReferenceEstimator->setFindHoles(true);
+        mpReferenceEstimator->setRadiusSearch(rf_rad_);
+
+        mpReferenceEstimator->setInputCloud(mpModelKeypoints);
+        mpReferenceEstimator->setInputNormals(mpModelNormals);
+        mpReferenceEstimator->setSearchSurface(mpModel);
+        mpReferenceEstimator->compute(*mpModelReference);
+
+        mpReferenceEstimator->setInputCloud(mpSceneKeypoints);
+        mpReferenceEstimator->setInputNormals(mpSceneNormals);
+        mpReferenceEstimator->setSearchSurface(mpScene);
+        mpReferenceEstimator->compute(*mpSceneReference);
+
+        std::vector<Eigen::Matrix4f, Eigen::aligned_allocator
+                <Eigen::Matrix4f> > rototranslations;
+        std::vector<pcl::Correspondences> clustered_corrs;
+        Hough3DGrouping<PointXYZ, PointXYZ,
+                ReferenceFrame,
+                ReferenceFrame> clusterer;
+        clusterer.setHoughBinSize(cg_size_);
+        clusterer.setHoughThreshold(cg_thresh_);
+        clusterer.setUseInterpolation(true);
+        clusterer.setUseDistanceWeight(false);
+
+        clusterer.setInputCloud(mpModelKeypoints);
+        clusterer.setInputRf(mpModelReference);
+        clusterer.setSceneCloud(mpSceneKeypoints);
+        clusterer.setSceneRf(mpSceneReference);
+        clusterer.setModelSceneCorrespondences(mpModelSceneCorrespondences);
+
+        if(clusterer.recognize(rototranslations, clustered_corrs))
+        {
+            mpOutputViewer->addPointCloud(mpScene, "scene");
+            // Visualization
+            // We are translating the model so that it doesn't end in the middle
+            // of the scene representation
+            for (size_t i = 0; i < rototranslations.size(); ++i)
+            {
+                for (size_t j = 0; j < clustered_corrs[i].size(); ++j)
+                {
+                    std::stringstream ss_line;
+                    ss_line << i << "_" << j;
+                    transformPointCloud(*mpModel,
+                                        *mpOutputModel,
+                                        rototranslations[i]);
+                    visualization::PointCloudColorHandlerCustom<PointXYZ>
+                            outputModel(mpOutputModel,
+                                        255,
+                                        0,
+                                        0);
+                    mpOutputViewer->addPointCloud(mpOutputModel,
+                                                  outputModel,
+                                                  ss_line.str());
+                }
+            }
+            transformPointCloud(*mpModel,
+                                *mpModel,
+                                Eigen::Vector3f(-1, 0, 0),
+                                Eigen::Quaternionf(1, 0, 0, 0));
+            transformPointCloud(*mpModelKeypoints,
+                                *mpModelKeypoints,
+                                Eigen::Vector3f(-1, 0, 0),
+                                Eigen::Quaternionf(1, 0, 0, 0));
+            visualization::PointCloudColorHandlerCustom<PointXYZ>
+                    colorModel(mpModel,
+                               255,
+                               0,
+                               0);
+            mpOutputViewer->addPointCloud<PointXYZ>(mpModel,
+                                                    colorModel,
+                                                    "colorModel");
+            mpOutputViewer->resetCamera();
+        }
     }
 }
 
@@ -762,4 +901,42 @@ void PCLObjectExtractor::UpdateSelectedPoints()
         mUi->saveCloudButton->setEnabled(false);
         mUi->saveCloudButton->setText(QString("Save"));
     }
+}
+
+
+/**
+ * @brief PCLObjectExtractor::ComputeCloudResolution
+ * @param cloud
+ * @return
+ */
+double PCLObjectExtractor::ComputeCloudResolution(
+                            const PointCloud<PointXYZ>::ConstPtr & cloud)
+{
+    double res = 0.0;
+    int n_points = 0;
+    int nres;
+    std::vector<int> indices (2);
+    std::vector<float> sqr_distances (2);
+    search::KdTree<PointXYZ> tree;
+    tree.setInputCloud (cloud);
+
+    for (size_t i = 0; i < cloud->size (); ++i)
+    {
+      if (! pcl_isfinite ((*cloud)[i].x))
+      {
+        continue;
+      }
+      //Considering the second neighbor since the first is the point itself.
+      nres = tree.nearestKSearch(i, 2, indices, sqr_distances);
+      if (nres == 2)
+      {
+        res += sqrt (sqr_distances[1]);
+        ++n_points;
+      }
+    }
+    if (n_points != 0)
+    {
+      res /= n_points;
+    }
+    return res;
 }
